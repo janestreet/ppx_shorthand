@@ -1,0 +1,131 @@
+open! Core
+
+module Structure_without_erasure = struct
+  type t = unit
+
+  include struct
+    type t = unit [@@deriving sexp]
+  end
+end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Multiple definition of the type name t.
+       Names must be unique in a given structure or signature.
+|}]
+
+module Signature_without_erasure : sig
+  type t = unit
+
+  include sig
+    type t = unit [@@deriving sexp]
+  end
+end =
+  Unit
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Multiple definition of the type name t.
+       Names must be unique in a given structure or signature.
+|}]
+
+(* Demonstrate some syntax errors. *)
+
+[%%rederive type t = unit]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one @@deriving or @@deriving_inline attribute
+|}]
+
+module _ : sig
+  [%%rederive: type t = unit]
+end = struct end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one @@deriving or @@deriving_inline attribute
+|}]
+
+[%%rederive type t = unit [@@foo]]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one @@deriving or @@deriving_inline attribute
+|}]
+
+module _ : sig
+  [%%rederive: type t = unit [@@bar]]
+end = struct end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one @@deriving or @@deriving_inline attribute
+|}]
+
+[%%rederive
+type t = unit [@@deriving foo] [@@deriving_inline bar]
+
+[@@@deriving.end]]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one @@deriving or @@deriving_inline attribute
+|}]
+
+module _ : sig
+  [%%rederive:
+  type t = unit [@@deriving foo] [@@deriving_inline bar]
+
+  [@@@deriving.end]]
+end = struct end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one @@deriving or @@deriving_inline attribute
+|}]
+
+[%%rederive type t [@@deriving foo]]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Some expected
+|}]
+
+module _ : sig
+  [%%rederive: type t [@@deriving foo]]
+end = struct end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Some expected
+|}]
+
+let g = [%eta (f : _)]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: arrow expected
+|}]
+
+let f () = exclave_ "foo"
+let g = [%eta (f : _ -> _)]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: This value escapes its region.
+Line _:
+  Hint: Cannot return a local value without an "exclave_" annotation.
+|}]

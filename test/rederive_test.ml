@@ -69,7 +69,7 @@ module%test [@name "deriving_inline"] _ =
        let equal = (equal_unit : t -> t -> bool)
        let _ = equal
 
-       [@@@deriving.end]]
+       [@@@end]]
      end :
      sig
        type t = unit
@@ -84,7 +84,7 @@ module%test [@name "deriving_inline"] _ =
        end
        [@@ocaml.doc "@inline"]
 
-       [@@@deriving.end]]
+       [@@@end]]
      end))
 
 module%test [@name "re-exported type"] _ =
@@ -168,7 +168,7 @@ module%test [@name "fully-qualified ppxlib.deriving_inline"] _ =
        let equal = (equal_unit : t -> t -> bool)
        let _ = equal
 
-       [@@@deriving.end]]
+       [@@@end]]
      end :
      sig
        type t = unit
@@ -183,7 +183,7 @@ module%test [@name "fully-qualified ppxlib.deriving_inline"] _ =
        end
        [@@ocaml.doc "@inline"]
 
-       [@@@deriving.end]]
+       [@@@end]]
      end))
 
 module%test [@name "preceding attribute"] _ = struct

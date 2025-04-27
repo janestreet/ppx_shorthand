@@ -72,7 +72,7 @@ Error: Expected exactly one @@deriving or @@deriving_inline attribute
 [%%rederive
 type t = unit [@@deriving foo] [@@deriving_inline bar]
 
-[@@@deriving.end]]
+[@@@end]]
 
 [%%expect
   {|
@@ -84,7 +84,7 @@ module _ : sig
   [%%rederive:
   type t = unit [@@deriving foo] [@@deriving_inline bar]
 
-  [@@@deriving.end]]
+  [@@@end]]
 end = struct end
 
 [%%expect

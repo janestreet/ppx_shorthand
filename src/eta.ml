@@ -1,4 +1,4 @@
-open! Base
+open! Stdppx
 open! Import
 
 type arrow =
@@ -32,7 +32,6 @@ let arg_name i = function
 ;;
 
 let expand ~loc f { args; ret; is_local_return } =
-  let loc = ghostify#location loc in
   let arg_pats =
     List.mapi args ~f:(fun i (label, _) ->
       label, Ast_builder.pvar ~loc (arg_name i label))
@@ -60,7 +59,45 @@ let eta_extension =
     "eta"
     Extension.Context.expression
     eta_pattern
-    (fun ~loc ~path:(_ : string) expr arrow -> expand ~loc expr arrow)
+    (fun ~loc ~path:(_ : string) expr arrow ->
+       let loc = ghostify#location loc in
+       expand ~loc expr arrow)
 ;;
 
-let extensions = [ eta_extension ]
+let eta_n_pattern =
+  let open Ast_pattern in
+  single_expr_payload __
+;;
+
+let make_expand_n ~num_args ~is_local_return =
+  let extension_name = "eta" ^ Int.to_string num_args in
+  let extension_name =
+    if is_local_return then extension_name ^ ".exclave" else extension_name
+  in
+  Extension.declare
+    extension_name
+    Extension.Context.expression
+    eta_n_pattern
+    (fun ~loc ~path:(_ : string) expr ->
+       let loc = ghostify#location loc in
+       let arrow =
+         { args = List.init ~len:num_args ~f:(Fun.const (Nolabel, [%type: _]))
+         ; ret = [%type: _]
+         ; is_local_return
+         }
+       in
+       expand ~loc expr arrow)
+;;
+
+let cartesian_product_map2 a b ~f =
+  List.concat_map a ~f:(fun x -> List.map b ~f:(fun y -> f x y))
+;;
+
+let eta_n_extensions =
+  cartesian_product_map2
+    [ true; false ]
+    (List.init ~len:3 ~f:(fun x -> x + 1))
+    ~f:(fun is_local_return num_args -> make_expand_n ~is_local_return ~num_args)
+;;
+
+let extensions = eta_extension :: eta_n_extensions

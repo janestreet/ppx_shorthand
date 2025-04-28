@@ -1,4 +1,4 @@
-open! Base
+open! Stdppx
 open! Import
 
 module Item = struct
@@ -44,7 +44,7 @@ let type_declaration_deriving_pattern (type a) ~(item : a Item.t) =
   |> Item.extension_pattern item
   |> map ~f:(fun k items rec_flag attrs decl ->
     let deriving, attrs =
-      List.partition_tf attrs ~f:(function
+      List.partition attrs ~f:(function
         | { attr_name =
               { txt =
                   ( "ppxlib.deriving"

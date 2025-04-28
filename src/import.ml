@@ -26,5 +26,3 @@ let ghostify =
     method! location loc = { loc with loc_ghost = true }
   end
 ;;
-
-include Composition_infix

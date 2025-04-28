@@ -2,6 +2,6 @@
  (name ppx_shorthand)
  (public_name ppx_shorthand)
  (kind ppx_rewriter)
- (libraries base base.composition_infix ppxlib)
+ (libraries ppxlib ppxlib.stdppx)
  (preprocess
   (pps ppxlib.metaquot)))

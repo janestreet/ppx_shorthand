@@ -58,3 +58,59 @@ let%expect_test "local-returning" =
   print_s [%sexp (globalize_float (i 10. 5.) : float)];
   [%expect {| 15 |}]
 ;;
+
+(* The fact that this compiles given the [@inline] attributes on each definition proves
+   the PPX is working as intended, since [@inline] may only appear on syntactic functions
+   and not values. *)
+open struct
+  let[@inline] int_abs = [%eta1 Int.abs]
+  let[@inline] int_equal = [%eta2 Int.equal]
+  let[@inline] array_set = [%eta3 Array.set]
+
+  let%template[@inline] option_value_local_exn =
+    [%eta1.exclave Option.value_exn [@mode local]]
+  ;;
+
+  let%template[@inline] option_first_some_local =
+    [%eta2.exclave Option.first_some [@mode local]]
+  ;;
+
+  let[@inline] bool_select = [%eta3.exclave Bool.select]
+end
+
+let%expect_test "etaN for eta{1,2,3}" =
+  let () =
+    print_s [%sexp (int_abs (-4) : int)];
+    [%expect {| 4 |}]
+  in
+  let () =
+    print_s [%sexp (int_equal 0 0 : bool)];
+    [%expect {| true |}]
+  in
+  let () =
+    let array = [| 'X' |] in
+    array_set array 0 'Y';
+    print_s [%sexp (array.(0) : char)];
+    [%expect {| Y |}]
+  in
+  ()
+;;
+
+let%expect_test "etaN.exclave for eta{1,2,3}" =
+  let () =
+    let some = Some 3 in
+    print_s [%sexp (option_value_local_exn some : int)];
+    [%expect {| 3 |}]
+  in
+  let () =
+    let some = Some 10 in
+    print_s [%sexp (option_value_local_exn (option_first_some_local None some) : int)];
+    [%expect {| 10 |}]
+  in
+  let () =
+    let some = Some 13 in
+    print_s [%sexp (option_value_local_exn (bool_select false None some) : int)];
+    [%expect {| 13 |}]
+  in
+  ()
+;;

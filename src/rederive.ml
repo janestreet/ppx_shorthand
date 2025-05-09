@@ -1,5 +1,6 @@
 open! Stdppx
 open! Import
+module Ast_builder_jane = Ppxlib_jane.Ast_builder.Default
 
 module Item = struct
   type 'a t =
@@ -94,42 +95,70 @@ let pmty_with_typesubst ~loc mod_type decl =
     ]
 ;;
 
-let impl_extension =
-  Extension.declare
-    "rederive"
-    Structure_item
-    (type_declaration_deriving_pattern ~item:Structure)
-    (fun ~loc ~path:(_ : string) ~items ~rec_flag ~deriving ~attrs ~decl ->
-       match deriving with
-       | Error err -> Ast_builder.pstr_extension ~loc err []
-       | Ok deriving ->
-         let loc = ghostify#location loc in
-         (* We use metaquot for the [include] because it's more convenient than
+let include_derivings_in_impl
+  ~portable
+  ~loc
+  ~path:(_ : string)
+  ~items
+  ~rec_flag
+  ~deriving
+  ~attrs
+  ~decl
+  =
+  match deriving with
+  | Error err -> Ast_builder.pstr_extension ~loc err []
+  | Ok deriving ->
+    let loc = ghostify#location loc in
+    (* We use metaquot for the [include] because it's more convenient than
          [Ast_builder], as includes are especially cumbersome. *)
-         [%stri
-           include
-             [%m
-             Ast_builder.pmod_constraint
-               ~loc
-               (Ast_builder.pmod_structure ~loc items)
-               (pmty_with_typesubst
-                  ~loc
-                  (Ast_builder.pmty_signature
-                     ~loc
-                     [ Ast_builder.psig_type
-                         ~loc
-                         rec_flag
-                         [ { decl with
-                             ptype_attributes =
-                               Ast_builder.attribute
-                                 ~loc
-                                 ~name:{ txt = "ppxlib.deriving"; loc }
-                                 ~payload:deriving
-                               :: attrs
-                           }
-                         ]
-                     ])
-                  decl)]])
+    [%stri
+      include
+        [%m
+        Ast_builder.pmod_constraint
+          ~loc
+          (Ast_builder.pmod_structure ~loc items)
+          (pmty_with_typesubst
+             ~loc
+             (Ast_builder_jane.pmty_signature
+                ~loc
+                (Ast_builder_jane.signature
+                   ~loc
+                   ~modalities:
+                     (if portable
+                      then
+                        [ Ast_builder.Located.mk
+                            ~loc
+                            (Ppxlib_jane.Shim.Modality.Modality "portable")
+                        ]
+                      else [])
+                   [ Ast_builder.psig_type
+                       ~loc
+                       rec_flag
+                       [ { decl with
+                           ptype_attributes =
+                             Ast_builder.attribute
+                               ~loc
+                               ~name:{ txt = "ppxlib.deriving"; loc }
+                               ~payload:deriving
+                             :: attrs
+                         }
+                       ]
+                   ]))
+             decl)]]
+;;
+
+let impl_extensions =
+  [ Extension.declare
+      "rederive"
+      Structure_item
+      (type_declaration_deriving_pattern ~item:Structure)
+      (include_derivings_in_impl ~portable:false)
+  ; Extension.declare
+      "@rederive.portable"
+      Structure_item
+      (type_declaration_deriving_pattern ~item:Structure)
+      (include_derivings_in_impl ~portable:true)
+  ]
 ;;
 
 let intf_extension =
@@ -156,4 +185,4 @@ let intf_extension =
            pmty_with_typesubst ~loc (Ast_builder.pmty_signature ~loc items) decl]])
 ;;
 
-let extensions = [ impl_extension; intf_extension ]
+let extensions = intf_extension :: impl_extensions

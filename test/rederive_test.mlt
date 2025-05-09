@@ -1,0 +1,68 @@
+(* Quickcheck generators in general are not portable, and so [[@@deriving quickcheck]] in
+   signature position does not mark the functions as portable. So even though [unit]'s
+   quickcheck generator, etc. are portable, [[%%rederive]] in structure position conceals
+   this fact when it hides the derived definitions behind
+   [sig type _t = unit [@@deriving] quickcheck end]. *)
+
+open Core
+
+module _ : sig @@ portable
+  type _t = unit
+
+  [%%rederive: type _t = unit [@@deriving quickcheck]]
+end = struct
+  type _t = unit
+
+  [%%rederive type _t = unit [@@deriving quickcheck]]
+end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Signature mismatch:
+       ...
+       Values do not match:
+         val quickcheck_generator__t : unit Base_quickcheck.Generator.t
+       is not included in
+         val quickcheck_generator__t : unit Base_quickcheck.Generator.t @@
+           portable
+       The second is portable and the first is nonportable.
+       File "rederive_test.mlt", line 12, characters 2-54:
+         Expected declaration
+       File "rederive_test.mlt", line 16, characters 2-53: Actual declaration
+|}]
+
+[%%expect {| |}]
+
+(* We can use [[%%rederive.portable]] to expose the fact that [unit]'s quickcheck is
+   portable. *)
+
+module _ : sig @@ portable
+  type _t = unit
+
+  [%%rederive: type _t = unit [@@deriving quickcheck]]
+end = struct
+  type _t = unit
+
+  [%%rederive.portable type _t = unit [@@deriving quickcheck]]
+end
+
+(* Some ppxs --- including [quickcheck] --- provide a [~portable] flag in structure
+   position that can be used to enforce that the implementation is portable. However, not
+   all ppxs provide this. Despite the fact that [quickcheck] _does_ provide [~portable]
+   and so wouldn't actually need [[%%rederive.portable]], we still use it for these tests,
+   because it is an example of a ppx that is especially unlikely to produce portable
+   definitions by default (while other ppxs that do not currently offer [~portable] might
+   switch to providing portable definitions by default and, on doing so, break these
+   tests).
+*)
+
+module _ : sig @@ portable
+  type _t = unit
+
+  [%%rederive: type _t = unit [@@deriving quickcheck]]
+end = struct
+  type _t = unit
+
+  [%%rederive type _t = unit [@@deriving quickcheck ~portable]]
+end

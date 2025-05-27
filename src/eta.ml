@@ -12,7 +12,20 @@ let cons_args ret =
   map3 (ptyp_arrow __ __ ret) ~f:(fun label typ args -> (label, typ) :: args)
 ;;
 
-let is_local_return (_ : core_type) = false
+let is_local_mode mode =
+  match mode.txt with
+  | Mode "local" -> true
+  | Mode _ -> false
+;;
+
+let rec is_local_return core_type =
+  match core_type.ptyp_desc with
+  | Ptyp_arrow (_, _, return_type, _, return_modes) ->
+    (match return_type.ptyp_desc with
+     | Ptyp_arrow _ -> is_local_return return_type
+     | _ -> List.exists return_modes ~f:is_local_mode)
+  | _ -> false
+;;
 
 let arrow_pattern =
   let open Ast_pattern in

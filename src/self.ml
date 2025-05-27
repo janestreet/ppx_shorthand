@@ -91,7 +91,7 @@ let self_expander ~ctxt name kind =
 
 let self_pattern =
   let open Ast_pattern in
-  let signature = Fn.id in
+  let signature = signature in
   let module_pattern =
     module_declaration ~name:(some __') ~type_:(map1 __ ~f:(fun ty -> Module ty))
     |> psig_module

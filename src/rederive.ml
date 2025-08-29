@@ -7,9 +7,16 @@ module Item = struct
     | Structure : structure_item t
     | Signature : signature_item t
 
-  let extension_pattern : type a. a t -> (a list, _, _) Ast_pattern.t -> _ = function
+  let items_pattern : type a. a t -> (a list, _, _) Ast_pattern.t -> _ = function
     | Structure -> Ast_pattern.pstr
     | Signature -> Ast_pattern.psig
+  ;;
+
+  let extension_pattern
+    : type a. a t -> (extension, _, _) Ast_pattern.t -> _ -> (a, _, _) Ast_pattern.t
+    = function
+    | Structure -> Ast_pattern.pstr_extension
+    | Signature -> Ast_pattern.psig_extension
   ;;
 
   let decl_pattern : type a. a t -> _ -> _ -> (a, _, _) Ast_pattern.t = function
@@ -17,65 +24,96 @@ module Item = struct
     | Signature -> Ast_pattern.psig_type
   ;;
 
-  let collect_attributes (type a) (t : a t) (items : a list) =
-    List.filter_map items ~f:(fun item ->
-      match t, item with
-      | Structure, { pstr_desc = Pstr_attribute attr; _ }
-      | Signature, { psig_desc = Psig_attribute attr; _ } -> Some attr
-      | _ -> None)
+  open struct
+    let marker =
+      object
+        inherit Ppxlib.Ast_traverse.iter as super
+
+        method! attribute attr =
+          Attribute.mark_as_handled_manually attr;
+          super#attribute attr
+      end
+    ;;
+  end
+
+  let mark_attributes : type a. a t -> a list -> unit =
+    fun (type a) (t : a t) (as_ : a list) ->
+    List.iter as_ ~f:(fun a ->
+      match t with
+      | Structure -> marker#structure_item a
+      | Signature -> marker#signature_item a)
   ;;
 end
 
 let type_declaration_deriving_pattern (type a) ~(item : a Item.t) =
   let open Ast_pattern in
-  (type_declaration_attributes
-     __
-     (as__
-        (type_declaration
-           ~name:drop
-           ~params:drop
-           ~cstrs:drop
-           ~kind:drop
-           ~private_:drop
-           ~manifest:(some drop) (* Required by [with] constraint. *)))
-   ^:: nil
-   |> Item.decl_pattern item __)
-  ^:: drop
-  |> as__
-  |> Item.extension_pattern item
-  |> map ~f:(fun k items rec_flag attrs decl ->
-    let deriving, attrs =
-      List.partition attrs ~f:(function
-        | { attr_name =
-              { txt =
-                  ( "ppxlib.deriving"
-                  | "ppxlib.deriving_inline"
-                  | "deriving"
-                  | "deriving_inline" )
-              ; _
-              }
-          ; _
-          } -> true
-        | _ -> false)
-    in
-    let deriving =
-      match deriving with
-      | [ deriving ] -> Ok (ghostify#payload deriving.attr_payload)
-      | [] | _ :: _ :: _ ->
+  let pat =
+    many
+      (type_declaration_attributes
+         __
+         (as__
+            (type_declaration
+               ~name:drop
+               ~params:drop
+               ~cstrs:drop
+               ~kind:drop
+               ~private_:drop
+               ~manifest:(some drop) (* Required by [with] constraint. *)))
+       ^:: nil
+       |> Item.decl_pattern item __
+       |> map ~f:(fun k rec_flag attrs decl -> k (Some (rec_flag, attrs, decl)))
+       ||| map drop ~f:(fun k -> k None))
+    |> as__
+    |> Item.items_pattern item
+    |> map' ~f:(fun loc k items type_decl_infos ->
+      let error err =
         (* If we don't do this, the compiler prefers to complain about unhandled
            attributes rather than the nice error message we give it. *)
-        let mark_all_as_handled_manually =
-          List.iter ~f:Attribute.mark_as_handled_manually
-        in
-        mark_all_as_handled_manually deriving;
-        mark_all_as_handled_manually attrs;
-        mark_all_as_handled_manually (Item.collect_attributes item items);
-        Error
-          (Location.error_extensionf
-             ~loc:decl.ptype_loc
-             "Expected exactly one @@@deriving or @@@deriving_inline attribute")
-    in
-    k ~items ~rec_flag ~deriving ~attrs ~decl:(ghostify#type_declaration decl))
+        Item.mark_attributes item items;
+        Error err
+      in
+      let type_decl_infos =
+        match List.filter_opt type_decl_infos with
+        | [ (rec_flag, attrs, decl) ] ->
+          let deriving, attrs =
+            List.partition attrs ~f:(function
+              | { attr_name =
+                    { txt =
+                        ( "ppxlib.deriving"
+                        | "ppxlib.deriving_inline"
+                        | "deriving"
+                        | "deriving_inline" )
+                    ; _
+                    }
+                ; _
+                } -> true
+              | _ -> false)
+          in
+          (match deriving with
+           | [ deriving ] ->
+             let deriving = ghostify#payload deriving.attr_payload in
+             let decl = ghostify#type_declaration decl in
+             Ok (rec_flag, deriving, attrs, decl)
+           | [] | _ :: _ :: _ ->
+             error
+               (Location.error_extensionf
+                  ~loc:decl.ptype_loc
+                  "Expected exactly one @@@deriving or @@@deriving_inline attribute"))
+        | [] | _ :: _ :: _ ->
+          error
+            (Location.error_extensionf
+               ~loc
+               "Expected exactly one type declaration with a manifest")
+      in
+      k ~items ~type_decl_infos)
+  in
+  (* [ppx_template] expands some payloads to a [[%%template.inline]] node. That node is in
+     fact inlined into the surrounding structure/signature, but not until after the
+     [[%%rederive]] is expanded. So we specially make [[%%template.inline]] transparent
+     here. *)
+  Item.extension_pattern item (extension (string "template.inline") pat) drop ^:: nil
+  |> Item.items_pattern item
+  ||| pat
 ;;
 
 let pmty_with_typesubst ~loc mod_type decl =
@@ -95,19 +133,10 @@ let pmty_with_typesubst ~loc mod_type decl =
     ]
 ;;
 
-let include_derivings_in_impl
-  ~portable
-  ~loc
-  ~path:(_ : string)
-  ~items
-  ~rec_flag
-  ~deriving
-  ~attrs
-  ~decl
-  =
-  match deriving with
+let include_derivings_in_impl ~portable ~loc ~path:(_ : string) ~items ~type_decl_infos =
+  match type_decl_infos with
   | Error err -> Ast_builder.pstr_extension ~loc err []
-  | Ok deriving ->
+  | Ok (rec_flag, deriving, attrs, decl) ->
     let loc = ghostify#location loc in
     (* We use metaquot for the [include] because it's more convenient than
          [Ast_builder], as includes are especially cumbersome. *)
@@ -166,18 +195,10 @@ let intf_extension =
     "rederive"
     Signature_item
     (type_declaration_deriving_pattern ~item:Signature)
-    (fun
-        ~loc
-        ~path:(_ : string)
-        ~items
-        ~rec_flag:(_ : rec_flag)
-        ~deriving
-        ~attrs:(_ : attributes)
-        ~decl
-      ->
-       match deriving with
+    (fun ~loc ~path:(_ : string) ~items ~type_decl_infos ->
+       match type_decl_infos with
        | Error err -> Ast_builder.psig_extension ~loc err []
-       | Ok (_ : payload) ->
+       | Ok ((_ : rec_flag), (_ : payload), (_ : attribute list), decl) ->
          let loc = ghostify#location loc in
          [%sigi:
            include

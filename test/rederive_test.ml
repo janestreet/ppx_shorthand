@@ -248,3 +248,50 @@ sig
     type nonrec 'a t = 'a t = T of 'a constraint 'a = [< `foo | `bar ]
     [@@deriving equal]]
 end)
+
+module%test [@name "doc comments"] _ = struct
+  module T = struct
+    type t = unit
+  end
+
+  include
+    Proof
+      (T)
+      ((
+       struct
+         type t = T.t
+
+         [%%rederive
+         (** Doc comment *)
+
+         type t = unit [@@deriving equal]]
+       end :
+       sig
+         type t = T.t
+
+         [%%rederive:
+         (** Doc comment *)
+
+         type t = unit [@@deriving equal]]
+       end))
+end
+
+module%test [@name "template"] _ : sig
+  type%template t = unit [@@kind k = (value, bits64)] [@@deriving equal]
+end = (
+struct
+  [%%template
+  [@@@kind.default k = (value, bits64)]
+
+  type t = unit
+
+  [%%rederive type t = unit [@@kind k] [@@deriving equal]]]
+end :
+sig
+  [%%template:
+  [@@@kind.default k = (value, bits64)]
+
+  type t = unit
+
+  [%%rederive: type t = unit [@@kind k] [@@deriving equal]]]
+end)

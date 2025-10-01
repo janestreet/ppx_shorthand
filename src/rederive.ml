@@ -190,20 +190,37 @@ let impl_extensions =
   ]
 ;;
 
-let intf_extension =
-  Extension.declare
-    "rederive"
-    Signature_item
-    (type_declaration_deriving_pattern ~item:Signature)
-    (fun ~loc ~path:(_ : string) ~items ~type_decl_infos ->
-       match type_decl_infos with
-       | Error err -> Ast_builder.psig_extension ~loc err []
-       | Ok ((_ : rec_flag), (_ : payload), (_ : attribute list), decl) ->
-         let loc = ghostify#location loc in
-         [%sigi:
-           include
-             [%m
-           pmty_with_typesubst ~loc (Ast_builder.pmty_signature ~loc items) decl]])
+let include_derivings_in_intf ~nonportable ~loc ~path:(_ : string) ~items ~type_decl_infos
+  =
+  match type_decl_infos with
+  | Error err -> [ Ast_builder.psig_extension ~loc err [] ]
+  | Ok ((_ : rec_flag), (_ : payload), (_ : attribute list), decl) ->
+    let loc = ghostify#location loc in
+    [ Ast_builder_jane.psig_include
+        ~loc
+        ~modalities:
+          (if nonportable
+           then [ Ast_builder.Located.mk ~loc (Ppxlib_jane.Modality "nonportable") ]
+           else [])
+        (Ast_builder_jane.include_infos
+           ~loc
+           ~kind:Structure
+           (pmty_with_typesubst ~loc (Ast_builder.pmty_signature ~loc items) decl))
+    ]
 ;;
 
-let extensions = intf_extension :: impl_extensions
+let intf_extensions =
+  [ Extension.declare_inline
+      "rederive"
+      Signature_item
+      (type_declaration_deriving_pattern ~item:Signature)
+      (include_derivings_in_intf ~nonportable:false)
+  ; Extension.declare_inline
+      "@rederive.nonportable"
+      Signature_item
+      (type_declaration_deriving_pattern ~item:Signature)
+      (include_derivings_in_intf ~nonportable:true)
+  ]
+;;
+
+let extensions = intf_extensions @ impl_extensions

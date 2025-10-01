@@ -147,9 +147,10 @@ let g = [%eta (f : _ -> _)]
 [%%expect
   {|
 Line _, characters _-_:
-Error: This value escapes its region.
-Line _:
-  Hint: Cannot return a local value without an "exclave_" annotation.
+Error: This value is local
+       but is expected to be in the parent region or global
+       because it is a function return value.
+       Hint: Use exclave_ to return a local value.
 |}]
 
 (* [%eta1] already expands to include [@inline]. *)

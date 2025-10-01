@@ -1,0 +1,34 @@
+open! Core
+
+(* [%%rederive.nonportable] can't except from fully portable signatures,
+   only portable default modalities *)
+module Portable_signature : sig
+  include sig
+    type t [@@deriving compare]
+
+    [%%rederive.nonportable: type nonrec t = t [@@deriving equal]]
+  end @@ portable
+end = struct
+  type t = int
+
+  let (compare @ portable) x y = x - y
+  let (equal @ nonportable) x y = x = y
+end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Signature mismatch:
+       ...
+       Values do not match:
+         val equal : t -> t -> bool (* in a structure at nonportable *)
+       is not included in
+         val equal :
+           t Ppx_compare_lib__Ppx_compare_lib_intf.Definitions.equal @@
+           portable (* in a structure at nonportable *)
+       The first is nonportable but the second is portable.
+       File "rederive_nonportable_test.mlt", line 9, characters 4-66:
+         Expected declaration
+       File "rederive_nonportable_test.mlt", line 15, characters 7-12:
+         Actual declaration
+|}]

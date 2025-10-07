@@ -63,19 +63,12 @@ let%expect_test "local-returning" =
    the PPX is working as intended, since [@inline] may only appear on syntactic functions
    and not values. *)
 open struct
-  let[@inline] int_abs = [%eta1 Int.abs]
-  let[@inline] int_equal = [%eta2 Int.equal]
-  let[@inline] array_set = [%eta3 Array.set]
-
-  let%template[@inline] option_value_local_exn =
-    [%eta1.exclave Option.value_exn [@mode local]]
-  ;;
-
-  let%template[@inline] option_first_some_local =
-    [%eta2.exclave Option.first_some [@mode local]]
-  ;;
-
-  let[@inline] bool_select = [%eta3.exclave Bool.select]
+  let int_abs = [%eta1 Int.abs]
+  let int_equal = [%eta2 Int.equal]
+  let array_set = [%eta3 Array.set]
+  let%template option_value_local_exn = [%eta1.exclave Option.value_exn [@mode local]]
+  let%template option_first_some_local = [%eta2.exclave Option.first_some [@mode local]]
+  let bool_select = [%eta3.exclave Bool.select]
 end
 
 let%expect_test "etaN for eta{1,2,3}" =
@@ -114,3 +107,14 @@ let%expect_test "etaN.exclave for eta{1,2,3}" =
   in
   ()
 ;;
+
+(* Check that the [@inline] attribute is present. *)
+let f () () = ()
+
+[@@@ocamlformat "disable"]
+[@@@expand_inline let _ = [%eta (f : _ -> _)]]
+
+let _ = ((fun __eta_0 -> (f (__eta_0 : _) : _))[@inline ])
+
+[@@@end]
+[@@@ocamlformat "enable"]

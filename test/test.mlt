@@ -98,7 +98,7 @@ Error: Expected exactly one @@deriving or @@deriving_inline attribute
 [%%expect
   {|
 Line _, characters _-_:
-Error: Some expected
+Error: Expected exactly one type declaration with a manifest
 |}]
 
 module _ : sig
@@ -108,7 +108,29 @@ end = struct end
 [%%expect
   {|
 Line _, characters _-_:
-Error: Some expected
+Error: Expected exactly one type declaration with a manifest
+|}]
+
+[%%rederive
+type t = unit
+type t' = unit]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one type declaration with a manifest
+|}]
+
+module _ : sig
+  [%%rederive:
+  type t = unit
+  type t' = unit]
+end = struct end
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error: Expected exactly one type declaration with a manifest
 |}]
 
 let g = [%eta (f : _)]
@@ -125,7 +147,19 @@ let g = [%eta (f : _ -> _)]
 [%%expect
   {|
 Line _, characters _-_:
-Error: This value escapes its region.
-Line _:
-  Hint: Cannot return a local value without an "exclave_" annotation.
+Error: This value is local
+       but is expected to be in the parent region or global
+       because it is a function return value.
+       Hint: Use exclave_ to return a local value.
+|}]
+
+(* [%eta1] already expands to include [@inline]. *)
+
+let f () = ()
+let[@inline] g = [%eta1 f]
+
+[%%expect
+  {|
+Line _, characters _-_:
+Error (warning 54 [duplicated-attribute]): the "inline" attribute is used more than once on this expression
 |}]

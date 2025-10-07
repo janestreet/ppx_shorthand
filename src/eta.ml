@@ -61,10 +61,13 @@ let expand ~loc f { args; ret; is_local_return } =
   let body = { (Ast_builder.pexp_apply ~loc f arg_exprs) with pexp_loc = loc } in
   let ret_expr = [%expr ([%e body] : [%t ret])] in
   let ret_expr = if is_local_return then [%expr exclave_ [%e ret_expr]] else ret_expr in
-  List.fold_right
-    arg_pats
-    ~f:(fun (label, pat) -> Ast_builder.pexp_fun ~loc label None pat)
-    ~init:ret_expr
+  [%expr
+    [%e
+      List.fold_right
+        arg_pats
+        ~f:(fun (label, pat) -> Ast_builder.pexp_fun ~loc label None pat)
+        ~init:ret_expr]
+    [@inline]]
 ;;
 
 let eta_extension =
@@ -85,7 +88,7 @@ let eta_n_pattern =
 let make_expand_n ~num_args ~is_local_return =
   let extension_name = "eta" ^ Int.to_string num_args in
   let extension_name =
-    if is_local_return then extension_name ^ ".exclave" else extension_name
+    if is_local_return then "@" ^ extension_name ^ ".exclave" else extension_name
   in
   Extension.declare
     extension_name

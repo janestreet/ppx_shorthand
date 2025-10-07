@@ -2,4 +2,4 @@
  (name ppx_shorthand_test)
  (libraries core)
  (preprocess
-  (pps ppx_jane ppx_shorthand)))
+  (pps ppx_jane ppx_shorthand ppx_template)))

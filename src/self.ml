@@ -28,7 +28,8 @@ let module_type_of_package_type ~type_loc (id, alist) =
             ~cstrs:[]
             ~kind:Ptype_abstract
             ~private_:Public
-            ~manifest:(Some ty) ))
+            ~manifest:(Some ty)
+            () ))
     |> pmty_with ~loc:type_loc self
 ;;
 

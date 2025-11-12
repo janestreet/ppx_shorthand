@@ -26,7 +26,8 @@ Error: Signature mismatch:
          val equal :
            t Ppx_compare_lib__Ppx_compare_lib_intf.Definitions.equal @@
            portable (* in a structure at nonportable *)
-       The first is nonportable but the second is portable.
+       The left-hand side is nonportable
+       but the right-hand side is portable.
        File "rederive_nonportable_test.mlt", line 9, characters 4-66:
          Expected declaration
        File "rederive_nonportable_test.mlt", line 15, characters 7-12:

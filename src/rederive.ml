@@ -140,8 +140,8 @@ let include_derivings_in_impl ~portable ~loc ~path:(_ : string) ~items ~type_dec
   | Error err -> Ast_builder.pstr_extension ~loc err []
   | Ok (rec_flag, deriving, attrs, decl) ->
     let loc = ghostify#location loc in
-    (* We use metaquot for the [include] because it's more convenient than
-         [Ast_builder], as includes are especially cumbersome. *)
+    (* We use metaquot for the [include] because it's more convenient than [Ast_builder],
+       as includes are especially cumbersome. *)
     [%stri
       include
         [%m

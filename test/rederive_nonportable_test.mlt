@@ -1,7 +1,7 @@
 open! Core
 
-(* [%%rederive.nonportable] can't except from fully portable signatures,
-   only portable default modalities *)
+(* [%%rederive.nonportable] can't except from fully portable signatures, only portable
+   default modalities *)
 module Portable_signature : sig
   include sig
     type t [@@deriving compare]

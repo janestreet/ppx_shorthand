@@ -125,8 +125,8 @@ module%test [@name "re-exported private type"] _ : sig
       | Some of 'a
     [@@deriving equal]]
 end =
-(* We don't use [Proof1] here because a private type can only be equal to itself, so
-     there isn't a good module to pass as the first argument to the functor. *)
+(* We don't use [Proof1] here because a private type can only be equal to itself, so there
+   isn't a good module to pass as the first argument to the functor. *)
 struct
   type 'a t = 'a option =
     | None
@@ -232,7 +232,7 @@ module%test [@name "constraint"] _ : sig
   type 'a t constraint 'a = [< `foo | `bar ] [@@deriving equal]
 end =
 (* We don't use [Proof1] here because we'd need to introduce a new functor with a
-     constraint on the type variable of its first argument. *)
+   constraint on the type variable of its first argument. *)
 (
 struct
   type 'a t = T of 'a constraint 'a = [< `foo | `bar ]

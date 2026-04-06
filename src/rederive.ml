@@ -14,13 +14,6 @@ module Item = struct
       fun s -> s |> signature |> psig
   ;;
 
-  let extension_pattern
-    : type a. a t -> (extension, _, _) Ast_pattern.t -> _ -> (a, _, _) Ast_pattern.t
-    = function
-    | Structure -> Ast_pattern.pstr_extension
-    | Signature -> Ast_pattern.psig_extension
-  ;;
-
   let decl_pattern : type a. a t -> _ -> _ -> (a, _, _) Ast_pattern.t = function
     | Structure -> Ast_pattern.pstr_type
     | Signature -> Ast_pattern.psig_type
@@ -49,73 +42,64 @@ end
 
 let type_declaration_deriving_pattern (type a) ~(item : a Item.t) =
   let open Ast_pattern in
-  let pat =
-    many
-      (type_declaration_attributes
-         __
-         (as__
-            (type_declaration
-               ~name:drop
-               ~params:drop
-               ~cstrs:drop
-               ~kind:drop
-               ~private_:drop
-               ~manifest:(some drop) (* Required by [with] constraint. *)))
-       ^:: nil
-       |> Item.decl_pattern item __
-       |> map ~f:(fun k rec_flag attrs decl -> k (Some (rec_flag, attrs, decl)))
-       ||| map drop ~f:(fun k -> k None))
-    |> as__
-    |> Item.items_pattern item
-    |> map' ~f:(fun loc k items type_decl_infos ->
-      let error err =
-        (* If we don't do this, the compiler prefers to complain about unhandled
-           attributes rather than the nice error message we give it. *)
-        Item.mark_attributes item items;
-        Error err
-      in
-      let type_decl_infos =
-        match List.filter_opt type_decl_infos with
-        | [ (rec_flag, attrs, decl) ] ->
-          let deriving, attrs =
-            List.partition attrs ~f:(function
-              | { attr_name =
-                    { txt =
-                        ( "ppxlib.deriving"
-                        | "ppxlib.deriving_inline"
-                        | "deriving"
-                        | "deriving_inline" )
-                    ; _
-                    }
-                ; _
-                } -> true
-              | _ -> false)
-          in
-          (match deriving with
-           | [ deriving ] ->
-             let deriving = ghostify#payload deriving.attr_payload in
-             let decl = ghostify#type_declaration decl in
-             Ok (rec_flag, deriving, attrs, decl)
-           | [] | _ :: _ :: _ ->
-             error
-               (Location.error_extensionf
-                  ~loc:decl.ptype_loc
-                  "Expected exactly one @@@deriving or @@@deriving_inline attribute"))
-        | [] | _ :: _ :: _ ->
-          error
-            (Location.error_extensionf
-               ~loc
-               "Expected exactly one type declaration with a manifest")
-      in
-      k ~items ~type_decl_infos)
-  in
-  (* [ppx_template] expands some payloads to a [[%%template.inline]] node. That node is in
-     fact inlined into the surrounding structure/signature, but not until after the
-     [[%%rederive]] is expanded. So we specially make [[%%template.inline]] transparent
-     here. *)
-  Item.extension_pattern item (extension (string "template.inline") pat) drop ^:: nil
+  many
+    (type_declaration_attributes
+       __
+       (as__
+          (type_declaration
+             ~name:drop
+             ~params:drop
+             ~cstrs:drop
+             ~kind:drop
+             ~private_:drop
+             ~manifest:(some drop) (* Required by [with] constraint. *)))
+     ^:: nil
+     |> Item.decl_pattern item __
+     |> map ~f:(fun k rec_flag attrs decl -> k (Some (rec_flag, attrs, decl)))
+     ||| map drop ~f:(fun k -> k None))
+  |> as__
   |> Item.items_pattern item
-  ||| pat
+  |> map' ~f:(fun loc k items type_decl_infos ->
+    let error err =
+      (* If we don't do this, the compiler prefers to complain about unhandled attributes
+         rather than the nice error message we give it. *)
+      Item.mark_attributes item items;
+      Error err
+    in
+    let type_decl_infos =
+      match List.filter_opt type_decl_infos with
+      | [ (rec_flag, attrs, decl) ] ->
+        let deriving, attrs =
+          List.partition attrs ~f:(function
+            | { attr_name =
+                  { txt =
+                      ( "ppxlib.deriving"
+                      | "ppxlib.deriving_inline"
+                      | "deriving"
+                      | "deriving_inline" )
+                  ; _
+                  }
+              ; _
+              } -> true
+            | _ -> false)
+        in
+        (match deriving with
+         | [ deriving ] ->
+           let deriving = ghostify#payload deriving.attr_payload in
+           let decl = ghostify#type_declaration decl in
+           Ok (rec_flag, deriving, attrs, decl)
+         | [] | _ :: _ :: _ ->
+           error
+             (Location.error_extensionf
+                ~loc:decl.ptype_loc
+                "Expected exactly one @@@deriving or @@@deriving_inline attribute"))
+      | [] | _ :: _ :: _ ->
+        error
+          (Location.error_extensionf
+             ~loc
+             "Expected exactly one type declaration with a manifest")
+    in
+    k ~items ~type_decl_infos)
 ;;
 
 let pmty_with_typesubst ~loc mod_type decl =

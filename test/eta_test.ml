@@ -4,11 +4,9 @@ let%expect_test "simple argument reordering (constraint)" =
   let f : char -> y:char -> ?z:char -> unit -> string =
     fun x ~y ?(z = 'z') () -> String.of_array [| x; y; z |]
   in
-  let g : ?z:char -> char -> y:char -> unit -> string = [%eta (f : ?z:_ -> _)] in
-  let h : y:char -> ?z:char -> char -> unit -> string = [%eta (g : y:_ -> _)] in
-  let i : char -> y:char -> ?z:char -> unit -> string =
-    [%eta (h : _ -> y:_ -> ?z:_ -> _)]
-  in
+  let g : ?z:char -> char -> y:char -> unit -> string = [%eta f ?z:_ _] in
+  let h : y:char -> ?z:char -> char -> unit -> string = [%eta g ~y:_] in
+  let i : char -> y:char -> ?z:char -> unit -> string = [%eta h _ ~y:_ ?z:_ _] in
   print_endline (f 'a' ~y:'b' ~z:'c' ());
   [%expect {| abc |}];
   print_endline (g ~z:'c' 'a' ~y:'b' ());
@@ -22,10 +20,10 @@ let%expect_test "simple argument reordering (constraint)" =
 let%test_unit "partial application w/ or w/o optional argument" =
   let f : ?a:unit -> unit -> unit -> unit = fun ?(a = ()) () () -> a in
   (* w/ optional argument *)
-  let g : ?a:unit -> unit -> unit = [%eta (f () : ?a:_ -> _)] in
+  let g : ?a:unit -> unit -> unit = [%eta f () ?a:_ _] in
   g ~a:() ();
   (* w/o optional argument *)
-  let h : unit -> unit = [%eta (f () : _ -> _)] in
+  let h : unit -> unit = [%eta f () _] in
   h ()
 ;;
 
@@ -34,12 +32,12 @@ let%expect_test "eta-expand binary function of local arguments" =
   let open struct
     external f : float @ local -> float @ local -> float = "%addfloat"
   end in
-  let g : float -> float -> float = [%eta (f : _ -> _ -> _)] in
+  let g : float -> float -> float = [%eta f _ _] in
   print_s [%sexp (g 5. 10. : float)];
   [%expect {| 15 |}];
   (* test as [let] *)
   let h : float @ local -> float @ local -> float = fun x y -> f x y in
-  let i : float -> float -> float = [%eta (h : _ -> _ -> _)] in
+  let i : float -> float -> float = [%eta h _ _] in
   print_s [%sexp (i 10. 5. : float)];
   [%expect {| 15 |}]
 ;;
@@ -49,12 +47,12 @@ let%expect_test "local-returning" =
   let open struct
     external f : float @ local -> float @ local -> float @ local = "%addfloat"
   end in
-  let g : float -> float -> float @ local = [%eta (f : _ -> _ -> _ @ local)] in
+  let g : float -> float -> float @ local = [%eta exclave_ f _ _] in
   print_s [%sexp (globalize_float (g 5. 10.) : float)];
   [%expect {| 15 |}];
   (* test as [let] *)
   let h : float @ local -> float @ local -> float @ local = fun x y -> exclave_ f x y in
-  let i : float -> float -> float @ local = [%eta (h : _ -> _ -> _ @ local)] in
+  let i : float -> float -> float @ local = [%eta exclave_ h _ _] in
   print_s [%sexp (globalize_float (i 10. 5.) : float)];
   [%expect {| 15 |}]
 ;;
@@ -66,9 +64,9 @@ open struct
   let int_abs = [%eta1 Int.abs]
   let int_equal = [%eta2 Int.equal]
   let array_set = [%eta3 Array.set]
-  let%template option_value_local_exn = [%eta1.exclave Option.value_exn [@mode local]]
-  let%template option_first_some_local = [%eta2.exclave Option.first_some [@mode local]]
-  let bool_select = [%eta3.exclave Bool.select]
+  let%template option_value_local_exn = [%eta1 exclave_ Option.value_exn [@mode local]]
+  let%template option_first_some_local = [%eta2 exclave_ Option.first_some [@mode local]]
+  let bool_select = [%eta3 exclave_ Bool.select]
 end
 
 let%expect_test "etaN for eta{1,2,3}" =
@@ -110,11 +108,42 @@ let%expect_test "etaN.exclave for eta{1,2,3}" =
 
 (* Check that the [@inline] attribute is present. *)
 let f () () = ()
+let g () ~x = x
+let print () = print_endline "Hello, world!"
 
 [@@@ocamlformat "disable"]
-[@@@expand_inline let _ = [%eta (f : _ -> _)]]
+[@@@expand_inline let _ = [%eta f _]]
 
-let _ = ((fun __eta_0 -> (f (__eta_0 : _) : _))[@inline ])
+let _ = ((fun __eta_0 -> f __eta_0)[@inline ])
+[@@@end]
 
+(* [pexp_holes] *)
+[@@@expand_inline
+  let _ = [%eta (f _ : 'b)]
+  let _ = [%eta1 (f : 'b)]
+  let _ = [%eta2 (f : 'b)]
+  let _ = [%eta f (_ : 'a)]
+  let _ = [%eta f (_ : 'a @ local uncontended)]
+  let _ = [%eta g (_ : 'a) ~x:(_ : 'b)]
+  let _ = [%eta g (_ : 'a) ~x:1]
+  let _ = [%eta exclave_ (f _ : _ @ local)]
+  let _ = [%eta exclave_ (f _ : _)]
+  let _ = [%eta (print (); ( + )) _ _]
+  (* For non-oxcaml-code *)
+  let _ = [%eta f ppx_eta_internal__pexp_hole_shim]
+]
+
+let _ = ((fun __eta_0 -> (f __eta_0 : 'b))[@inline ])
+let _ = ((fun __eta_0 -> (f __eta_0 : 'b))[@inline ])
+let _ = ((fun __eta_0 __eta_1 -> (f __eta_0 __eta_1 : 'b))[@inline ])
+let _ = ((fun (__eta_0 : 'a) -> f __eta_0)[@inline ])
+let _ = ((fun (__eta_0 : 'a @ local uncontended) -> f __eta_0)[@inline ])
+let _ = ((fun (__eta_0 : 'a) ~x:(__eta_1 : 'b) -> g __eta_0 ~x:__eta_1)
+  [@inline ])
+let _ = ((fun (__eta_0 : 'a) -> g __eta_0 ~x:1)[@inline ])
+let _ = ((fun __eta_0 -> exclave_ (f __eta_0 : _ @ local))[@inline ])
+let _ = ((fun __eta_0 -> exclave_ (f __eta_0 : _))[@inline ])
+let _ = ((fun __eta_0 __eta_1 -> (print (); (+)) __eta_0 __eta_1)[@inline ])
+let _ = ((fun __eta_0 -> f __eta_0)[@inline ])
 [@@@end]
 [@@@ocamlformat "enable"]

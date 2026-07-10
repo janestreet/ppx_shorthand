@@ -1,12 +1,12 @@
 open! Core
 
 module _ : sig
-  type t [@@deriving compare]
+  type t [@@deriving compare ~localize]
 
-  [%%rederive.nonportable: type nonrec t = t [@@deriving equal]]
+  [%%rederive.nonportable: type nonrec t = t [@@deriving equal ~localize]]
 end = struct
   type t = int
 
-  let compare x y = x - y
-  let equal x y = x = y
+  let%template[@mode m = (local, global)] compare x y = x - y
+  let%template[@mode m = (local, global)] equal x y = x = y
 end

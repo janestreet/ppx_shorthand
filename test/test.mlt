@@ -158,5 +158,6 @@ let[@inline] g = [%eta1 f]
 [%%expect
   {|
 Line _, characters _-_:
-Error (warning 54 [duplicated-attribute]): the "inline" attribute is used more than once on this expression
+Error (warning 54 [duplicated-attribute]): the inline attribute is used more than once
+  on this expression
 |}]

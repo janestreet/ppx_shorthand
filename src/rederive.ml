@@ -176,23 +176,43 @@ let impl_extensions =
   ]
 ;;
 
-let include_derivings_in_intf ~nonportable ~loc ~path:(_ : string) ~items ~type_decl_infos
-  =
+let warning_signature_item ~loc setting =
+  let loc = { loc with loc_ghost = true } in
+  [%sigi: [@@@ocaml.warning [%e Ast_builder.estring ~loc setting]]]
+;;
+
+let include_derivings_in_intf ~modality ~loc ~path:(_ : string) ~items ~type_decl_infos =
   match type_decl_infos with
   | Error err -> [ Ast_builder.psig_extension ~loc err [] ]
   | Ok ((_ : rec_flag), (_ : payload), (_ : attribute list), decl) ->
     let loc = ghostify#location loc in
-    [ Ast_builder_jane.psig_include
+    let modalities =
+      match modality with
+      | None -> []
+      | Some modality ->
+        let name =
+          match modality with
+          | `Nonportable -> "nonportable"
+          | `Stateful -> "stateful"
+        in
+        [ Ast_builder.Located.mk ~loc (Ppxlib_jane.Modality name) ]
+    in
+    let include_ =
+      Ast_builder_jane.psig_include
         ~loc
-        ~modalities:
-          (if nonportable
-           then [ Ast_builder.Located.mk ~loc (Ppxlib_jane.Modality "nonportable") ]
-           else [])
+        ~modalities
         (Ast_builder_jane.include_infos
            ~loc
            ~kind:Structure
            (pmty_with_typesubst ~loc (Ast_builder.pmty_signature ~loc items) decl))
-    ]
+    in
+    (match modality with
+     | Some _ ->
+       [ warning_signature_item ~loc "-redundant-modality"
+       ; include_
+       ; warning_signature_item ~loc "+redundant-modality"
+       ]
+     | None -> [ include_ ])
 ;;
 
 let intf_extensions =
@@ -200,12 +220,17 @@ let intf_extensions =
       "rederive"
       Signature_item
       (type_declaration_deriving_pattern ~item:Signature)
-      (include_derivings_in_intf ~nonportable:false)
+      (include_derivings_in_intf ~modality:None)
   ; Extension.declare_inline
       "@rederive.nonportable"
       Signature_item
       (type_declaration_deriving_pattern ~item:Signature)
-      (include_derivings_in_intf ~nonportable:true)
+      (include_derivings_in_intf ~modality:(Some `Nonportable))
+  ; Extension.declare_inline
+      "@rederive.stateful"
+      Signature_item
+      (type_declaration_deriving_pattern ~item:Signature)
+      (include_derivings_in_intf ~modality:(Some `Stateful))
   ]
 ;;
 

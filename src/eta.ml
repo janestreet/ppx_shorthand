@@ -14,13 +14,14 @@ let extension_name = function
 
 let arg_name i = Printf.sprintf "__eta_%d" i
 let pexp_ident str ~loc = Ppxlib.Loc.make (Lident str) ~loc |> Ast_builder.pexp_ident ~loc
-let pexp_hole_reserved_name_for_non_oxcaml_code = "ppx_eta_internal__pexp_hole_shim"
+let pexp_hole ~loc = Ast_builder.pexp_hole ~loc
 
 let is_pexp_hole pexp_desc ~loc =
   match Ppxlib_jane.Shim.Expression_desc.of_parsetree pexp_desc ~loc with
   | Pexp_hole -> true
-  | Pexp_ident { txt = Lident name; _ }
-    when String.equal name pexp_hole_reserved_name_for_non_oxcaml_code -> true
+  | Pexp_ident { txt = Lident "__"; _ } ->
+    (* For compilers which don't support [Pexp_hole], we also support the identifier [__]. *)
+    true
   | _ -> false
 ;;
 
@@ -136,9 +137,7 @@ let extension t =
              ~loc
          | _ -> raise_invalid_input ~loc)
       | Eta_n { n } ->
-        let holes =
-          List.init ~len:n ~f:(Fun.const (Nolabel, Ast_builder.pexp_hole ~loc))
-        in
+        let holes = List.init ~len:n ~f:(Fun.const (Nolabel, pexp_hole ~loc)) in
         (match Ppxlib_jane.Shim.Expression_desc.of_parsetree pexp_desc ~loc with
          | Pexp_constraint (expr, ret, modes) ->
            expand

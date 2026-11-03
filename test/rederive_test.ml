@@ -82,7 +82,6 @@ module%test [@name "deriving_inline"] _ =
        include sig
          [@@@ocaml.warning "-32"]
 
-         include Ppx_compare_lib.Equal.S with type t := t
          include Ppx_compare_lib.Equal.S__local with type t := t
        end
        [@@ocaml.doc "@inline"]
@@ -184,7 +183,6 @@ module%test [@name "fully-qualified ppxlib.deriving_inline"] _ =
        include sig
          [@@@ocaml.warning "-32"]
 
-         include Ppx_compare_lib.Equal.S with type t := t
          include Ppx_compare_lib.Equal.S__local with type t := t
        end
        [@@ocaml.doc "@inline"]

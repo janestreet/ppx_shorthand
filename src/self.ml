@@ -77,6 +77,7 @@ let self_expander ~ctxt name kind =
                  (pexp_pack ~loc:name.loc fresh_module)
                  (Some (ptyp_package ~loc:ty.loc ty.txt))
                  [])
+            ~constraint_:None
             ~modes:[]
         ]
   in

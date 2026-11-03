@@ -64,8 +64,8 @@ open struct
   let int_abs = [%eta1 Int.abs]
   let int_equal = [%eta2 Int.equal]
   let array_set = [%eta3 Array.set]
-  let%template option_value_local_exn = [%eta1 Option.value_exn [@mode local]]
-  let%template option_first_some_local = [%eta2 Option.first_some [@mode local]]
+  let option_value_local_exn = [%eta1 Option.value_exn]
+  let option_first_some_local = [%eta2 Option.first_some]
   let bool_select = [%eta3 Bool.select]
 end
 
@@ -117,33 +117,38 @@ let print () = print_endline "Hello, world!"
 let _ = ((fun __eta_0 -> f __eta_0)[@inline ])
 [@@@end]
 
+
 (* [pexp_holes] *)
 [@@@expand_inline
   let _ = [%eta (f _ : 'b)]
   let _ = [%eta1 (f : 'b)]
   let _ = [%eta2 (f : 'b)]
   let _ = [%eta f (_ : 'a)]
+  let _ = [%eta f (__ : 'a)]
   let _ = [%eta f (_ : 'a @ local uncontended)]
+  let _ = [%eta f (__ : 'a @ local uncontended)]
   let _ = [%eta g (_ : 'a) ~x:(_ : 'b)]
+  let _ = [%eta g (__ : 'a) ~x:(__ : 'b)]
   let _ = [%eta g (_ : 'a) ~x:1]
   let _ = [%eta exclave_ (f _ : _ @ local)]
   let _ = [%eta exclave_ (f _ : _)]
   let _ = [%eta (print (); ( + )) _ _]
-  (* For non-oxcaml-code *)
-  let _ = [%eta f ppx_eta_internal__pexp_hole_shim]
 ]
 
 let _ = ((fun __eta_0 -> (f __eta_0 : 'b))[@inline ])
 let _ = ((fun __eta_0 -> (f __eta_0 : 'b))[@inline ])
 let _ = ((fun __eta_0 __eta_1 -> (f __eta_0 __eta_1 : 'b))[@inline ])
 let _ = ((fun (__eta_0 : 'a) -> f __eta_0)[@inline ])
+let _ = ((fun (__eta_0 : 'a) -> f __eta_0)[@inline ])
 let _ = ((fun (__eta_0 : 'a @ local uncontended) -> f __eta_0)[@inline ])
+let _ = ((fun (__eta_0 : 'a @ local uncontended) -> f __eta_0)[@inline ])
+let _ = ((fun (__eta_0 : 'a) ~x:(__eta_1 : 'b) -> g __eta_0 ~x:__eta_1)
+  [@inline ])
 let _ = ((fun (__eta_0 : 'a) ~x:(__eta_1 : 'b) -> g __eta_0 ~x:__eta_1)
   [@inline ])
 let _ = ((fun (__eta_0 : 'a) -> g __eta_0 ~x:1)[@inline ])
 let _ = ((fun __eta_0 -> exclave_ (f __eta_0 : _ @ local))[@inline ])
 let _ = ((fun __eta_0 -> exclave_ (f __eta_0 : _))[@inline ])
 let _ = ((fun __eta_0 __eta_1 -> (print (); (+)) __eta_0 __eta_1)[@inline ])
-let _ = ((fun __eta_0 -> f __eta_0)[@inline ])
 [@@@end]
 [@@@ocamlformat "enable"]

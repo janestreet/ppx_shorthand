@@ -17,12 +17,12 @@ module%test [@name "nullary type"] _ =
      struct
        type t = unit
 
-       [%%rederive type t = unit [@@deriving equal ~localize]]
+       [%%rederive type t = unit [@@deriving equal]]
      end :
      sig
        type t = unit
 
-       [%%rederive: type t = unit [@@deriving equal ~localize]]
+       [%%rederive: type t = unit [@@deriving equal]]
      end))
 
 module%test [@name "unary type"] _ =
@@ -32,12 +32,12 @@ module%test [@name "unary type"] _ =
      struct
        type 'a t = 'a option
 
-       [%%rederive type 'a t = 'a option [@@deriving equal ~localize]]
+       [%%rederive type 'a t = 'a option [@@deriving equal]]
      end :
      sig
        type 'a t = 'a option
 
-       [%%rederive: type 'a t = 'a option [@@deriving equal ~localize]]
+       [%%rederive: type 'a t = 'a option [@@deriving equal]]
      end))
 
 module%test [@name "binary type"] _ =
@@ -47,12 +47,12 @@ module%test [@name "binary type"] _ =
      struct
        type ('a, 'b) t = ('a, 'b) Either.t
 
-       [%%rederive type ('a, 'b) t = ('a, 'b) Either.t [@@deriving equal ~localize]]
+       [%%rederive type ('a, 'b) t = ('a, 'b) Either.t [@@deriving equal]]
      end :
      sig
        type ('a, 'b) t = ('a, 'b) Either.t
 
-       [%%rederive: type ('a, 'b) t = ('a, 'b) Either.t [@@deriving equal ~localize]]
+       [%%rederive: type ('a, 'b) t = ('a, 'b) Either.t [@@deriving equal]]
      end))
 
 module%test [@name "deriving_inline"] _ =
@@ -66,9 +66,8 @@ module%test [@name "deriving_inline"] _ =
        type t = unit [@@deriving_inline equal ~localize]
 
        let _ = fun (_ : t) -> ()
-       let equal__local = (equal_unit__local : t -> t -> bool)
-       let _ = equal__local
-       let equal = (fun a b -> equal__local a b : t -> t -> bool)
+       let _ = equal
+       let equal = (fun a b -> equal a b : t -> t -> bool)
        let _ = equal
 
        [@@@end]]
@@ -83,7 +82,6 @@ module%test [@name "deriving_inline"] _ =
          [@@@ocaml.warning "-32"]
 
          include Ppx_compare_lib.Equal.S with type t := t
-         include Ppx_compare_lib.Equal.S__local with type t := t
        end
        [@@ocaml.doc "@inline"]
 
@@ -103,7 +101,7 @@ module%test [@name "re-exported type"] _ =
          type nonrec 'a t = 'a t =
            | None
            | Some of 'a
-         [@@deriving equal ~localize]]
+         [@@deriving equal]]
      end :
      sig
        type 'a t = 'a option =
@@ -114,7 +112,7 @@ module%test [@name "re-exported type"] _ =
          type nonrec 'a t = 'a t =
            | None
            | Some of 'a
-         [@@deriving equal ~localize]]
+         [@@deriving equal]]
      end))
 
 module%test [@name "re-exported private type"] _ : sig
@@ -126,7 +124,7 @@ module%test [@name "re-exported private type"] _ : sig
     type nonrec 'a t = 'a t = private
       | None
       | Some of 'a
-    [@@deriving equal ~localize]]
+    [@@deriving equal]]
 end =
 (* We don't use [Proof1] here because a private type can only be equal to itself, so there
    isn't a good module to pass as the first argument to the functor. *)
@@ -139,7 +137,7 @@ struct
     type nonrec 'a t = 'a t =
       | None
       | Some of 'a
-    [@@deriving equal ~localize]]
+    [@@deriving equal]]
 end
 
 module%test [@name "fully-qualified ppxlib.deriving"] _ =
@@ -149,12 +147,12 @@ module%test [@name "fully-qualified ppxlib.deriving"] _ =
      struct
        type t = unit
 
-       [%%rederive type t = unit [@@ppxlib.deriving equal ~localize]]
+       [%%rederive type t = unit [@@ppxlib.deriving equal]]
      end :
      sig
        type t = unit
 
-       [%%rederive: type t = unit [@@ppxlib.deriving equal ~localize]]
+       [%%rederive: type t = unit [@@ppxlib.deriving equal]]
      end))
 
 module%test [@name "fully-qualified ppxlib.deriving_inline"] _ =
@@ -168,9 +166,8 @@ module%test [@name "fully-qualified ppxlib.deriving_inline"] _ =
        type t = unit [@@ppxlib.deriving_inline equal ~localize]
 
        let _ = fun (_ : t) -> ()
-       let equal__local = (equal_unit__local : t -> t -> bool)
-       let _ = equal__local
-       let equal = (fun a b -> equal__local a b : t -> t -> bool)
+       let _ = equal
+       let equal = (fun a b -> equal a b : t -> t -> bool)
        let _ = equal
 
        [@@@end]]
@@ -185,7 +182,6 @@ module%test [@name "fully-qualified ppxlib.deriving_inline"] _ =
          [@@@ocaml.warning "-32"]
 
          include Ppx_compare_lib.Equal.S with type t := t
-         include Ppx_compare_lib.Equal.S__local with type t := t
        end
        [@@ocaml.doc "@inline"]
 
@@ -204,14 +200,12 @@ module%test [@name "preceding attribute"] _ = struct
        struct
          type t = T.t
 
-         [%%rederive
-           type nonrec t = T.t = { t : unit } [@@unboxed] [@@deriving equal ~localize]]
+         [%%rederive type nonrec t = T.t = { t : unit } [@@unboxed] [@@deriving equal]]
        end :
        sig
          type t = T.t
 
-         [%%rederive:
-           type nonrec t = T.t = { t : unit } [@@unboxed] [@@deriving equal ~localize]]
+         [%%rederive: type nonrec t = T.t = { t : unit } [@@unboxed] [@@deriving equal]]
        end))
 end
 
@@ -227,19 +221,17 @@ module%test [@name "following attribute"] _ = struct
        struct
          type t = T.t
 
-         [%%rederive
-           type nonrec t = T.t = { t : unit } [@@deriving equal ~localize] [@@unboxed]]
+         [%%rederive type nonrec t = T.t = { t : unit } [@@deriving equal] [@@unboxed]]
        end :
        sig
          type t = T.t
 
-         [%%rederive:
-           type nonrec t = T.t = { t : unit } [@@deriving equal ~localize] [@@unboxed]]
+         [%%rederive: type nonrec t = T.t = { t : unit } [@@deriving equal] [@@unboxed]]
        end))
 end
 
 module%test [@name "constraint"] _ : sig
-  type 'a t constraint 'a = [< `foo | `bar ] [@@deriving equal ~localize]
+  type 'a t constraint 'a = [< `foo | `bar ] [@@deriving equal]
 end =
 (* We don't use [Proof1] here because we'd need to introduce a new functor with a
    constraint on the type variable of its first argument. *)
@@ -249,14 +241,14 @@ struct
 
   [%%rederive
     type nonrec 'a t = 'a t = T of 'a constraint 'a = [< `foo | `bar ]
-    [@@deriving equal ~localize]]
+    [@@deriving equal]]
 end :
 sig
   type 'a t = T of 'a constraint 'a = [< `foo | `bar ]
 
   [%%rederive:
     type nonrec 'a t = 'a t = T of 'a constraint 'a = [< `foo | `bar ]
-    [@@deriving equal ~localize]]
+    [@@deriving equal]]
 end)
 
 module%test [@name "doc comments"] _ = struct
@@ -274,7 +266,7 @@ module%test [@name "doc comments"] _ = struct
          [%%rederive
          (** Doc comment *)
 
-         type t = unit [@@deriving equal ~localize]]
+         type t = unit [@@deriving equal]]
        end :
        sig
          type t = T.t
@@ -282,26 +274,20 @@ module%test [@name "doc comments"] _ = struct
          [%%rederive:
          (** Doc comment *)
 
-         type t = unit [@@deriving equal ~localize]]
+         type t = unit [@@deriving equal]]
        end))
 end
 
 module%test [@name "template"] _ : sig
-  type%template t = unit [@@kind k = (value, bits64)] [@@deriving equal ~localize]
+  type t = unit [@@deriving equal]
 end = (
 struct
-  [%%template
-  [@@@kind.default k = (value, bits64)]
-
   type t = unit
 
-  [%%rederive type t = unit [@@kind k] [@@deriving equal ~localize]]]
+  [%%rederive type t = unit [@@deriving equal]]
 end :
 sig
-  [%%template:
-  [@@@kind.default k = (value, bits64)]
-
   type t = unit
 
-  [%%rederive: type t = unit [@@kind k] [@@deriving equal ~localize]]]
+  [%%rederive: type t = unit [@@deriving equal]]
 end)
